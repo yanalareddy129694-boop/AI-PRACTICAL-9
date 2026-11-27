@@ -1,0 +1,101 @@
+
+from collections import deque
+
+blocks = ["A", "B", "C"]
+
+# Initial state
+initial_state = frozenset({
+    ("ontable", "A"),
+    ("ontable", "B"),
+    ("ontable", "C"),
+    ("clear", "A"),
+    ("clear", "B"),
+    ("clear", "C"),
+    ("handempty",)
+})
+
+# Goal state
+goal = {
+    ("ontable", "A"),
+    ("on", "B", "A"),
+    ("on", "C", "B")
+}
+
+# STRIPS actions
+def get_actions():
+    actions = []
+
+    for x in blocks:
+        actions.append((
+            f"PICKUP({x})",
+            {("ontable", x), ("clear", x), ("handempty",)},
+            {("holding", x)},
+            {("ontable", x), ("clear", x), ("handempty",)}
+        ))
+
+        actions.append((
+            f"PUTDOWN({x})",
+            {("holding", x)},
+            {("ontable", x), ("clear", x), ("handempty",)},
+            {("holding", x)}
+        ))
+
+        for y in blocks:
+            if x != y:
+                actions.append((
+                    f"STACK({x}, {y})",
+                    {("holding", x), ("clear", y)},
+                    {("on", x, y), ("clear", x), ("handempty",)},
+                    {("holding", x), ("clear", y)}
+                ))
+
+                actions.append((
+                    f"UNSTACK({x}, {y})",
+                    {("on", x, y), ("clear", x), ("handempty",)},
+                    {("holding", x), ("clear", y)},
+                    {("on", x, y), ("clear", x), ("handempty",)}
+                ))
+
+    return actions
+
+
+# STRIPS planning using Breadth-First Search
+def strips_planner():
+    queue = deque([(initial_state, [])])
+    visited = {initial_state}
+    actions = get_actions()
+
+    while queue:
+        state, plan = queue.popleft()
+
+        if goal.issubset(state):
+            return plan
+
+        for name, pre, add, delete in actions:
+            if pre.issubset(state):
+                new_state = (state - delete) | add
+
+                if new_state not in visited:
+                    visited.add(new_state)
+                    queue.append(
+                        (new_state, plan + [name])
+                    )
+
+    return None
+
+
+# Display the result
+plan = strips_planner()
+
+print("Initial State: A, B, C are on the table")
+print("Goal: A on table, B on A, C on B")
+
+print("\nAction Plan:")
+
+if plan:
+    for step, action in enumerate(plan, 1):
+        print(step, action)
+
+    print("\nGoal Achieved Successfully!")
+else:
+    print("No solution found.")
